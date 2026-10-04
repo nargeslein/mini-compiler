@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Let,
     Ident(String),
@@ -13,7 +13,7 @@ pub enum Token {
     Star,
     Slash,
     RParen,
-    LParen 
+    LParen,
 }
 
 pub fn lex(input: &str) -> Vec<Token> {
@@ -78,29 +78,64 @@ mod tests {
 
     #[test]
     fn lexes_single_chars() {
-        assert_eq!(lex("= + ;"), vec![Token::Equals, Token::Plus, Token::Semicolon]);
+        assert_eq!(
+            lex("= + ;"),
+            vec![Token::Equals, Token::Plus, Token::Semicolon]
+        );
     }
 
     #[test]
     fn lexes_numbers() {
-        assert_eq!(lex("42 + 7;"), vec![Token::Number(42), Token::Plus, Token::Number(7), Token::Semicolon]);
+        assert_eq!(
+            lex("42 + 7;"),
+            vec![
+                Token::Number(42),
+                Token::Plus,
+                Token::Number(7),
+                Token::Semicolon
+            ]
+        );
     }
 
     #[test]
     fn lexes_identifiers() {
-        assert_eq!(lex("x + abc;"), vec![Token::Ident("x".into()), Token::Plus, Token::Ident("abc".into()), Token::Semicolon]);
+        assert_eq!(
+            lex("x + abc;"),
+            vec![
+                Token::Ident("x".into()),
+                Token::Plus,
+                Token::Ident("abc".into()),
+                Token::Semicolon
+            ]
+        );
     }
 
     #[test]
     fn lexes_let_statements() {
-        assert_eq!(lex("let x = 42 + y;"), vec![Token::Let, Token::Ident("x".into()), Token::Equals, Token::Number(42), Token::Plus, Token::Ident("y".into()), Token::Semicolon]);
+        assert_eq!(
+            lex("let x = 42 + y;"),
+            vec![
+                Token::Let,
+                Token::Ident("x".into()),
+                Token::Equals,
+                Token::Number(42),
+                Token::Plus,
+                Token::Ident("y".into()),
+                Token::Semicolon
+            ]
+        );
     }
 
     #[test]
     fn lexes_identifiers_with_digits() {
         assert_eq!(
             lex("x1 + abc;"),
-            vec![Token::Ident("x1".into()), Token::Plus, Token::Ident("abc".into()), Token::Semicolon]
+            vec![
+                Token::Ident("x1".into()),
+                Token::Plus,
+                Token::Ident("abc".into()),
+                Token::Semicolon
+            ]
         );
     }
 
@@ -132,4 +167,5 @@ mod tests {
                 Token::Semicolon,
             ]
         );
-    }}
+    }
+}

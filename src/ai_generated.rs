@@ -10,7 +10,19 @@ use std::iter::Peekable;
 use std::str::CharIndices;
 
 #[derive(Debug, PartialEq)]
-pub enum Token { Let, Ident(String), Number(i64), Plus, Minus, Equals, Semicolon, Star, Slash, LParen, RParen }
+pub enum Token {
+    Let,
+    Ident(String),
+    Number(i64),
+    Plus,
+    Minus,
+    Equals,
+    Semicolon,
+    Star,
+    Slash,
+    LParen,
+    RParen,
+}
 
 /// Splits `input` into tokens.
 ///
@@ -40,7 +52,10 @@ pub fn lex(input: &str) -> Vec<Token> {
                 match digits.parse::<i64>() {
                     Ok(n) => Token::Number(n),
                     Err(_) => {
-                        panic!("number `{}` at byte {} does not fit in an i64", digits, start)
+                        panic!(
+                            "number `{}` at byte {} does not fit in an i64",
+                            digits, start
+                        )
                     }
                 }
             }

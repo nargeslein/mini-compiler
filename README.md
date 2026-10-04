@@ -86,6 +86,6 @@ cargo test    # runs the tests for both lexers
 
 ## About
 
-Built by [Narges Hadji-Hosseini](https://www.linkedin.com/in/), software engineer, as part of a learning-in-public series on Rust and AI-assisted coding, and as a small taste of what [TechGarden Frankfurt](https://www.techgarden-frankfurt.de/) is about: builders sitting side by side, arguing about edge cases and shipping.
+Built by [Narges Hadji-Hosseini](https://www.linkedin.com/in/narges-hadji-hosseini), software engineer, as part of a learning-in-public series on Rust and AI-assisted coding, and as a small taste of what [TechGarden Frankfurt](https://www.techgarden-frankfurt.de/) is about: builders sitting side by side, arguing about edge cases and shipping.
 
 **Build. Code. Ship.**

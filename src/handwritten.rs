@@ -15,8 +15,12 @@ pub enum Token {
     RParen,
     LParen,
 }
+#[derive(Debug, PartialEq)]
+pub enum LexError {
+    UnexpectedChar(char),
+}
 
-pub fn lex(input: &str) -> Vec<Token> {
+pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
 
@@ -35,10 +39,10 @@ pub fn lex(input: &str) -> Vec<Token> {
                 tokens.push(match_token(read_word(c, &mut chars)))
             }
             c if c.is_whitespace() => {}
-            _ => {}
+            _ => return Err(LexError::UnexpectedChar(c)),
         }
     }
-    tokens
+    Ok(tokens)
 }
 
 fn read_number(first: char, chars: &mut Peekable<Chars>) -> i64 {
@@ -80,7 +84,7 @@ mod tests {
     fn lexes_single_chars() {
         assert_eq!(
             lex("= + ;"),
-            vec![Token::Equals, Token::Plus, Token::Semicolon]
+            Ok(vec![Token::Equals, Token::Plus, Token::Semicolon])
         );
     }
 
@@ -88,12 +92,12 @@ mod tests {
     fn lexes_numbers() {
         assert_eq!(
             lex("42 + 7;"),
-            vec![
+            Ok(vec![
                 Token::Number(42),
                 Token::Plus,
                 Token::Number(7),
                 Token::Semicolon
-            ]
+            ])
         );
     }
 
@@ -101,12 +105,12 @@ mod tests {
     fn lexes_identifiers() {
         assert_eq!(
             lex("x + abc;"),
-            vec![
+            Ok(vec![
                 Token::Ident("x".into()),
                 Token::Plus,
                 Token::Ident("abc".into()),
                 Token::Semicolon
-            ]
+            ])
         );
     }
 
@@ -114,7 +118,7 @@ mod tests {
     fn lexes_let_statements() {
         assert_eq!(
             lex("let x = 42 + y;"),
-            vec![
+            Ok(vec![
                 Token::Let,
                 Token::Ident("x".into()),
                 Token::Equals,
@@ -122,7 +126,7 @@ mod tests {
                 Token::Plus,
                 Token::Ident("y".into()),
                 Token::Semicolon
-            ]
+            ])
         );
     }
 
@@ -130,12 +134,12 @@ mod tests {
     fn lexes_identifiers_with_digits() {
         assert_eq!(
             lex("x1 + abc;"),
-            vec![
+            Ok(vec![
                 Token::Ident("x1".into()),
                 Token::Plus,
                 Token::Ident("abc".into()),
                 Token::Semicolon
-            ]
+            ])
         );
     }
 
@@ -143,7 +147,7 @@ mod tests {
     fn lexes_identifiers_with_underscore() {
         assert_eq!(
             lex("my_var;"),
-            vec![Token::Ident("my_var".into()), Token::Semicolon]
+            Ok(vec![Token::Ident("my_var".into()), Token::Semicolon])
         );
     }
 
@@ -151,7 +155,7 @@ mod tests {
     fn lexes_operators_and_parens() {
         assert_eq!(
             lex("let z = (x - 1) * 2 / y;"),
-            vec![
+            Ok(vec![
                 Token::Let,
                 Token::Ident("z".into()),
                 Token::Equals,
@@ -165,7 +169,11 @@ mod tests {
                 Token::Slash,
                 Token::Ident("y".into()),
                 Token::Semicolon,
-            ]
+            ])
         );
+    }
+    #[test]
+    fn rejects_unknown_char() {
+        assert_eq!(lex("x @ y"), Err(LexError::UnexpectedChar('@')));
     }
 }

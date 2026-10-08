@@ -1,5 +1,5 @@
 use std::iter::Peekable;
-use std::str::Chars;
+use std::str::CharIndices;
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -17,14 +17,14 @@ pub enum Token {
 }
 #[derive(Debug, PartialEq)]
 pub enum LexError {
-    UnexpectedChar(char),
+    UnexpectedChar{ch: char, pos:usize},
 }
 
 pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
-    let mut chars = input.chars().peekable();
+    let mut chars = input.char_indices().peekable();
 
-    while let Some(c) = chars.next() {
+    while let Some((pos,c)) = chars.next() {
         match c {
             '=' => tokens.push(Token::Equals),
             '+' => tokens.push(Token::Plus),
@@ -39,15 +39,15 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
                 tokens.push(match_token(read_word(c, &mut chars)))
             }
             c if c.is_whitespace() => {}
-            _ => return Err(LexError::UnexpectedChar(c)),
+            _ => return Err(LexError::UnexpectedChar { ch: c, pos }),
         }
     }
     Ok(tokens)
 }
 
-fn read_number(first: char, chars: &mut Peekable<Chars>) -> i64 {
+fn read_number(first: char, chars: &mut Peekable<CharIndices>) -> i64 {
     let mut number = first.to_string();
-    while let Some(&c) = chars.peek() {
+    while let Some(&(_,c)) = chars.peek() {
         if !c.is_ascii_digit() {
             break;
         }
@@ -57,9 +57,9 @@ fn read_number(first: char, chars: &mut Peekable<Chars>) -> i64 {
     number.parse().unwrap()
 }
 
-fn read_word(first: char, chars: &mut Peekable<Chars>) -> String {
+fn read_word(first: char, chars: &mut Peekable<CharIndices>) -> String {
     let mut string = first.to_string();
-    while let Some(&c) = chars.peek() {
+    while let Some(&(_,c)) = chars.peek() {
         if !(c.is_alphanumeric() || c == '_') {
             break;
         }
@@ -174,6 +174,6 @@ mod tests {
     }
     #[test]
     fn rejects_unknown_char() {
-        assert_eq!(lex("x @ y"), Err(LexError::UnexpectedChar('@')));
+        assert_eq!(lex("x @ y"), Err(LexError::UnexpectedChar{ch:'@',pos:2}) );
     }
 }

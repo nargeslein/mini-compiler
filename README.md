@@ -23,19 +23,19 @@ into a list of tokens:
 
 ## Two lexers, one problem
 
-This repo contains two implementations of the same lexer with the same public interface:
+This repo contains two implementations of the same lexer:
 
 | | Hand-written | AI-assisted (Claude Code) |
 | --- | --- | --- |
 | Time to write | about 1 hour | about 6 minutes |
-| Reading words and numbers | builds a new `String` char by char | slices directly from the input using byte offsets and lifetimes |
 | Helper functions | `read_number` and `read_word` | one generic `lexeme` helper taking a closure |
-| Unknown characters | silently ignored | panic with position |
-| Number overflow | `unwrap` panics | panic with a clear message |
+| Error handling | returns `Result<Vec<Token>, LexError>` | panics |
+| Unknown characters | `Err(UnexpectedChar { ch, pos })` | panic with position |
+| Number overflow | `Err(NumberTooLarge { pos })` | panic with a clear message |
 | Identifiers | any Unicode letter (`größe` works) | ASCII only |
-| Tests | 7 core cases | 7 core cases plus edge cases |
+| Tests | 14 | 13 |
 
-Both pass the same core tests. The AI version is more thorough and closer to production. The hand-written version is easier to read.
+Both pass the same core tests. The AI version came first with the edge cases. I ported those tests to my version, and then went one step further: instead of panicking, the hand-written lexer now reports errors as values the caller can handle.
 
 The point is not who is faster. To judge what the AI changed, which edge cases it added, why it uses lifetimes, or that it quietly restricted identifiers to ASCII, I first had to solve the problem myself. **Not speed, but judgment.**
 
@@ -54,6 +54,22 @@ What would you change in the hand-written version? Issues and comments are welco
 | `LParen`, `RParen` | `( )` |
 
 Identifiers start with a letter or underscore and may contain letters, digits and underscores. `let` is a keyword. Whitespace is ignored.
+
+## Errors (hand-written lexer)
+
+```rust
+pub enum LexError {
+    UnexpectedChar { ch: char, pos: usize },
+    NumberTooLarge { pos: usize },
+}
+```
+
+`pos` is the byte offset in the input where the problem starts:
+
+```rust
+lex("x = 4 $ 2;")                 // Err(UnexpectedChar { ch: '$', pos: 6 })
+lex("x = 99999999999999999999;")  // Err(NumberTooLarge { pos: 4 })
+```
 
 ## Project structure
 
@@ -79,7 +95,9 @@ cargo test    # runs the tests for both lexers
 
 - [x] Lexer: numbers, identifiers, `let`, operators, parentheses
 - [x] Unit tests
-- [ ] Return a `Result` with proper error types instead of panicking or ignoring input
+- [x] Hand-written lexer returns a `Result` with proper error types
+- [ ] AI-generated lexer returns the same `Result` instead of panicking
+- [ ] Comparison operators (`==`, `!=`, `<`, `>`)
 - [ ] Shared `Token` type and a `Lexer` trait so both implementations share one test suite
 - [ ] Parser: build a syntax tree from tokens
 - [ ] Evaluation: run simple programs like `let x = 42 + 7; x * 2`

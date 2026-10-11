@@ -24,14 +24,20 @@ pub enum Token {
     RParen,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum LexError {
+    UnexpectedChar { ch: char, pos: usize },
+    NumberTooLarge { pos: usize },
+}
+
 /// Splits `input` into tokens.
 ///
-/// # Panics
+/// # Errors
 ///
-/// The return type has no room for an error, so this panics if `input`
-/// contains a character that cannot start a token, or an integer literal that
-/// does not fit in an `i64`.
-pub fn lex(input: &str) -> Vec<Token> {
+/// Returns an error if `input` contains a character that cannot start a
+/// token, or an integer literal that does not fit in an `i64`. `pos` is the
+/// byte offset where the offending token starts.
+pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut chars = input.char_indices().peekable();
 
@@ -51,23 +57,18 @@ pub fn lex(input: &str) -> Vec<Token> {
                 // `digits` is all ASCII digits, so the only possible failure is overflow.
                 match digits.parse::<i64>() {
                     Ok(n) => Token::Number(n),
-                    Err(_) => {
-                        panic!(
-                            "number `{}` at byte {} does not fit in an i64",
-                            digits, start
-                        )
-                    }
+                    Err(_) => return Err(LexError::NumberTooLarge { pos: start }),
                 }
             }
             c if is_ident_start(c) => match lexeme(input, &mut chars, start, is_ident_continue) {
                 "let" => Token::Let,
                 name => Token::Ident(name.to_string()),
             },
-            _ => panic!("unexpected character {:?} at byte {}", c, start),
+            _ => return Err(LexError::UnexpectedChar { ch: c, pos: start }),
         };
         tokens.push(token);
     }
-    tokens
+    Ok(tokens)
 }
 
 /// Advances `chars` past every character accepted by `more`, then returns the
@@ -104,19 +105,22 @@ mod tests {
 
     #[test]
     fn symbols() {
-        assert_eq!(lex("= + ;"), vec![Equals, Plus, Semicolon]);
+        assert_eq!(lex("= + ;"), Ok(vec![Equals, Plus, Semicolon]));
     }
 
     #[test]
     fn numbers() {
-        assert_eq!(lex("42 + 7;"), vec![Number(42), Plus, Number(7), Semicolon]);
+        assert_eq!(
+            lex("42 + 7;"),
+            Ok(vec![Number(42), Plus, Number(7), Semicolon])
+        );
     }
 
     #[test]
     fn identifiers() {
         assert_eq!(
             lex("x + abc;"),
-            vec![ident("x"), Plus, ident("abc"), Semicolon]
+            Ok(vec![ident("x"), Plus, ident("abc"), Semicolon])
         );
     }
 
@@ -124,7 +128,7 @@ mod tests {
     fn let_statement() {
         assert_eq!(
             lex("let x = 42 + y;"),
-            vec![
+            Ok(vec![
                 Let,
                 ident("x"),
                 Equals,
@@ -132,7 +136,7 @@ mod tests {
                 Plus,
                 ident("y"),
                 Semicolon,
-            ]
+            ])
         );
     }
 
@@ -140,20 +144,20 @@ mod tests {
     fn identifier_containing_digit() {
         assert_eq!(
             lex("x1 + abc;"),
-            vec![ident("x1"), Plus, ident("abc"), Semicolon]
+            Ok(vec![ident("x1"), Plus, ident("abc"), Semicolon])
         );
     }
 
     #[test]
     fn identifier_containing_underscore() {
-        assert_eq!(lex("my_var;"), vec![ident("my_var"), Semicolon]);
+        assert_eq!(lex("my_var;"), Ok(vec![ident("my_var"), Semicolon]));
     }
 
     #[test]
     fn parenthesised_arithmetic() {
         assert_eq!(
             lex("let z = (x - 1) * 2 / y;"),
-            vec![
+            Ok(vec![
                 Let,
                 ident("z"),
                 Equals,
@@ -167,7 +171,7 @@ mod tests {
                 Slash,
                 ident("y"),
                 Semicolon,
-            ]
+            ])
         );
     }
 
@@ -175,15 +179,15 @@ mod tests {
 
     #[test]
     fn empty_and_whitespace_only_input() {
-        assert_eq!(lex(""), Vec::<Token>::new());
-        assert_eq!(lex(" \t\r\n"), Vec::<Token>::new());
+        assert_eq!(lex(""), Ok(Vec::<Token>::new()));
+        assert_eq!(lex(" \t\r\n"), Ok(Vec::<Token>::new()));
     }
 
     #[test]
     fn whitespace_between_tokens_is_optional() {
         assert_eq!(
             lex("let\tx=(1+y);\n"),
-            vec![
+            Ok(vec![
                 Let,
                 ident("x"),
                 Equals,
@@ -193,7 +197,7 @@ mod tests {
                 ident("y"),
                 RParen,
                 Semicolon,
-            ]
+            ])
         );
     }
 
@@ -201,30 +205,34 @@ mod tests {
     fn keyword_only_matches_a_whole_identifier() {
         assert_eq!(
             lex("letter let_ _let let1 Let"),
-            vec![
+            Ok(vec![
                 ident("letter"),
                 ident("let_"),
                 ident("_let"),
                 ident("let1"),
                 ident("Let"),
-            ]
+            ])
         );
     }
 
     #[test]
     fn largest_i64_is_accepted() {
-        assert_eq!(lex("9223372036854775807"), vec![Number(i64::MAX)]);
+        assert_eq!(lex("9223372036854775807"), Ok(vec![Number(i64::MAX)]));
     }
 
     #[test]
-    #[should_panic(expected = "number `9223372036854775808` at byte 0 does not fit in an i64")]
-    fn number_too_large_for_i64_panics() {
-        lex("9223372036854775808");
+    fn number_too_large_for_i64_is_an_error() {
+        assert_eq!(
+            lex("9223372036854775808"),
+            Err(LexError::NumberTooLarge { pos: 0 })
+        );
     }
 
     #[test]
-    #[should_panic(expected = "unexpected character '$' at byte 6")]
-    fn unexpected_character_panics() {
-        lex("x = 4 $ 2;");
+    fn unexpected_character_is_an_error() {
+        assert_eq!(
+            lex("x = 4 $ 2;"),
+            Err(LexError::UnexpectedChar { ch: '$', pos: 6 })
+        );
     }
 }

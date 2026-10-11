@@ -194,4 +194,58 @@ mod tests {
             Err(LexError::NumberTooLarge { pos: 4 })
         );
     }
+
+    #[test]
+    fn empty_and_whitespace_only_input() {
+        assert_eq!(lex(""), Ok(vec![]));
+        assert_eq!(lex(" \t\r\n"), Ok(vec![]));
+    }
+
+    #[test]
+    fn whitespace_between_tokens_is_optional() {
+        assert_eq!(
+            lex("let\tx=(1+y);\n"),
+            Ok(vec![
+                Token::Let,
+                Token::Ident("x".into()),
+                Token::Equals,
+                Token::LParen,
+                Token::Number(1),
+                Token::Plus,
+                Token::Ident("y".into()),
+                Token::RParen,
+                Token::Semicolon,
+            ])
+        );
+    }
+
+    #[test]
+    fn keyword_only_matches_a_whole_identifier() {
+        assert_eq!(
+            lex("letter let_ _let let1 Let"),
+            Ok(vec![
+                Token::Ident("letter".into()),
+                Token::Ident("let_".into()),
+                Token::Ident("_let".into()),
+                Token::Ident("let1".into()),
+                Token::Ident("Let".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn largest_i64_is_accepted() {
+        assert_eq!(
+            lex("9223372036854775807"),
+            Ok(vec![Token::Number(i64::MAX)])
+        );
+    }
+
+    #[test]
+    fn smallest_overflow_is_rejected() {
+        assert_eq!(
+            lex("9223372036854775808"),
+            Err(LexError::NumberTooLarge { pos: 0 })
+        );
+    }
 }

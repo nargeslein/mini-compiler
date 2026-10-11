@@ -248,4 +248,13 @@ mod tests {
             Err(LexError::NumberTooLarge { pos: 0 })
         );
     }
+
+    #[test]
+    fn umlaut_position_is_in_bytes() {
+        // ö and ß are 2 bytes each in UTF-8, so '$' is at byte 10, not char 8
+        assert_eq!(
+            lex("größe = $;"),
+            Err(LexError::UnexpectedChar { ch: '$', pos: 10 })
+        );
+    }
 }

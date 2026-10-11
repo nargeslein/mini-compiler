@@ -235,4 +235,13 @@ mod tests {
             Err(LexError::UnexpectedChar { ch: '$', pos: 6 })
         );
     }
+
+    #[test]
+    fn umlaut_is_not_an_identifier() {
+        // identifiers are ASCII only, so it stops at 'ö'
+        assert_eq!(
+            lex("größe = $;"),
+            Err(LexError::UnexpectedChar { ch: 'ö', pos: 2 })
+        );
+    }
 }

@@ -29,11 +29,12 @@ This repo contains two implementations of the same lexer:
 | --- | --- | --- |
 | Time to write | about 1 hour | about 6 minutes |
 | Helper functions | `read_number` and `read_word` | one generic `lexeme` helper taking a closure |
-| Error handling | returns `Result<Vec<Token>, LexError>` | panics |
-| Unknown characters | `Err(UnexpectedChar { ch, pos })` | panic with position |
-| Number overflow | `Err(NumberTooLarge { pos })` | panic with a clear message |
-| Identifiers | any Unicode letter (`größe` works) | ASCII only |
-| Tests | 14 | 13 |
+| Error handling | returns `Result<Vec<Token>, LexError>` | returns `Result<Vec<Token>, LexError>` |
+| How errors are returned | `map_err` and `?` | `return Err(...)` inside the `match` |
+| Unknown characters | `Err(UnexpectedChar { ch, pos })` | `Err(UnexpectedChar { ch, pos })` |
+| Number overflow | `Err(NumberTooLarge { pos })` | `Err(NumberTooLarge { pos })` |
+| Identifiers | any Unicode letter (`größe` works) | ASCII only (`größe` fails at `ö`) |
+| Tests | 15 | 14 |
 
 Both pass the same core tests. The AI version came first with the edge cases. I ported those tests to my version, and then went one step further: instead of panicking, the hand-written lexer now reports errors as values the caller can handle.
 
@@ -96,7 +97,7 @@ cargo test    # runs the tests for both lexers
 - [x] Lexer: numbers, identifiers, `let`, operators, parentheses
 - [x] Unit tests
 - [x] Hand-written lexer returns a `Result` with proper error types
-- [ ] AI-generated lexer returns the same `Result` instead of panicking
+- [x] AI-generated lexer returns the same `Result` instead of panicking
 - [ ] Comparison operators (`==`, `!=`, `<`, `>`)
 - [ ] Shared `Token` type and a `Lexer` trait so both implementations share one test suite
 - [ ] Parser: build a syntax tree from tokens

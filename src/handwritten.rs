@@ -17,14 +17,15 @@ pub enum Token {
 }
 #[derive(Debug, PartialEq)]
 pub enum LexError {
-    UnexpectedChar{ch: char, pos:usize},
+    UnexpectedChar { ch: char, pos: usize },
+    NumberTooLarge { pos: usize },
 }
 
 pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut chars = input.char_indices().peekable();
 
-    while let Some((pos,c)) = chars.next() {
+    while let Some((pos, c)) = chars.next() {
         match c {
             '=' => tokens.push(Token::Equals),
             '+' => tokens.push(Token::Plus),
@@ -34,7 +35,7 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
             ';' => tokens.push(Token::Semicolon),
             '(' => tokens.push(Token::LParen),
             ')' => tokens.push(Token::RParen),
-            '0'..='9' => tokens.push(Token::Number(read_number(c, &mut chars))),
+            '0'..='9' => tokens.push(Token::Number(read_number(c, &mut chars, pos)?)),
             c if c.is_alphabetic() || c == '_' => {
                 tokens.push(match_token(read_word(c, &mut chars)))
             }
@@ -45,21 +46,27 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
     Ok(tokens)
 }
 
-fn read_number(first: char, chars: &mut Peekable<CharIndices>) -> i64 {
+fn read_number(
+    first: char,
+    chars: &mut Peekable<CharIndices>,
+    start: usize,
+) -> Result<i64, LexError> {
     let mut number = first.to_string();
-    while let Some(&(_,c)) = chars.peek() {
+    while let Some(&(_, c)) = chars.peek() {
         if !c.is_ascii_digit() {
             break;
         }
         number.push(c);
         chars.next();
     }
-    number.parse().unwrap()
+    number
+        .parse()
+        .map_err(|_| LexError::NumberTooLarge { pos: start })
 }
 
 fn read_word(first: char, chars: &mut Peekable<CharIndices>) -> String {
     let mut string = first.to_string();
-    while let Some(&(_,c)) = chars.peek() {
+    while let Some(&(_, c)) = chars.peek() {
         if !(c.is_alphanumeric() || c == '_') {
             break;
         }
@@ -174,6 +181,17 @@ mod tests {
     }
     #[test]
     fn rejects_unknown_char() {
-        assert_eq!(lex("x @ y"), Err(LexError::UnexpectedChar{ch:'@',pos:2}) );
+        assert_eq!(
+            lex("x @ y"),
+            Err(LexError::UnexpectedChar { ch: '@', pos: 2 })
+        );
+    }
+
+    #[test]
+    fn number_too_large() {
+        assert_eq!(
+            lex("x = 99999999999999999999;"),
+            Err(LexError::NumberTooLarge { pos: 4 })
+        );
     }
 }

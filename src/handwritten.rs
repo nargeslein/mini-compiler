@@ -8,12 +8,18 @@ pub enum Token {
     Number(i64),
     Plus,
     Minus,
-    Equals,
+    Equals, // =
     Semicolon,
     Star,
     Slash,
     RParen,
     LParen,
+    EqEq,      // ==
+    NotEq,     // !=
+    Less,      // <
+    LessEq,    // <=
+    Greater,   // >
+    GreaterEq, // >=
 }
 #[derive(Debug, PartialEq)]
 pub enum LexError {
@@ -27,7 +33,7 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
 
     while let Some((pos, c)) = chars.next() {
         match c {
-            '=' => tokens.push(Token::Equals),
+            '=' | '<' | '>' | '!' => tokens.push(read_operator(c, &mut chars, pos)?),
             '+' => tokens.push(Token::Plus),
             '-' => tokens.push(Token::Minus),
             '*' => tokens.push(Token::Star),
@@ -83,28 +89,44 @@ fn match_token(name: String) -> Token {
     }
 }
 
+fn read_operator(
+    first: char,
+    chars: &mut Peekable<CharIndices>,
+    start: usize,
+) -> Result<Token, LexError> {
+    let followed_by_eq = chars.next_if(|&(_, c)| c == '=').is_some();
+
+    match (first, followed_by_eq) {
+        ('=', true) => Ok(Token::EqEq),
+        ('=', false) => Ok(Token::Equals),
+        ('<', true) => Ok(Token::LessEq),
+        ('<', false) => Ok(Token::Less),
+        ('>', true) => Ok(Token::GreaterEq),
+        ('>', false) => Ok(Token::Greater),
+        ('!', true) => Ok(Token::NotEq),
+        ('!', false) => Err(LexError::UnexpectedChar {
+            ch: first,
+            pos: start,
+        }),
+        _ => unreachable!(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::Token::*;
     use super::*;
 
     #[test]
     fn lexes_single_chars() {
-        assert_eq!(
-            lex("= + ;"),
-            Ok(vec![Token::Equals, Token::Plus, Token::Semicolon])
-        );
+        assert_eq!(lex("= + ;"), Ok(vec![Equals, Plus, Semicolon]));
     }
 
     #[test]
     fn lexes_numbers() {
         assert_eq!(
             lex("42 + 7;"),
-            Ok(vec![
-                Token::Number(42),
-                Token::Plus,
-                Token::Number(7),
-                Token::Semicolon
-            ])
+            Ok(vec![Number(42), Plus, Number(7), Semicolon])
         );
     }
 
@@ -113,10 +135,10 @@ mod tests {
         assert_eq!(
             lex("x + abc;"),
             Ok(vec![
-                Token::Ident("x".into()),
-                Token::Plus,
-                Token::Ident("abc".into()),
-                Token::Semicolon
+                Ident("x".into()),
+                Plus,
+                Ident("abc".into()),
+                Semicolon
             ])
         );
     }
@@ -126,13 +148,13 @@ mod tests {
         assert_eq!(
             lex("let x = 42 + y;"),
             Ok(vec![
-                Token::Let,
-                Token::Ident("x".into()),
-                Token::Equals,
-                Token::Number(42),
-                Token::Plus,
-                Token::Ident("y".into()),
-                Token::Semicolon
+                Let,
+                Ident("x".into()),
+                Equals,
+                Number(42),
+                Plus,
+                Ident("y".into()),
+                Semicolon
             ])
         );
     }
@@ -142,20 +164,17 @@ mod tests {
         assert_eq!(
             lex("x1 + abc;"),
             Ok(vec![
-                Token::Ident("x1".into()),
-                Token::Plus,
-                Token::Ident("abc".into()),
-                Token::Semicolon
+                Ident("x1".into()),
+                Plus,
+                Ident("abc".into()),
+                Semicolon
             ])
         );
     }
 
     #[test]
     fn lexes_identifiers_with_underscore() {
-        assert_eq!(
-            lex("my_var;"),
-            Ok(vec![Token::Ident("my_var".into()), Token::Semicolon])
-        );
+        assert_eq!(lex("my_var;"), Ok(vec![Ident("my_var".into()), Semicolon]));
     }
 
     #[test]
@@ -163,19 +182,19 @@ mod tests {
         assert_eq!(
             lex("let z = (x - 1) * 2 / y;"),
             Ok(vec![
-                Token::Let,
-                Token::Ident("z".into()),
-                Token::Equals,
-                Token::LParen,
-                Token::Ident("x".into()),
-                Token::Minus,
-                Token::Number(1),
-                Token::RParen,
-                Token::Star,
-                Token::Number(2),
-                Token::Slash,
-                Token::Ident("y".into()),
-                Token::Semicolon,
+                Let,
+                Ident("z".into()),
+                Equals,
+                LParen,
+                Ident("x".into()),
+                Minus,
+                Number(1),
+                RParen,
+                Star,
+                Number(2),
+                Slash,
+                Ident("y".into()),
+                Semicolon,
             ])
         );
     }
@@ -206,15 +225,15 @@ mod tests {
         assert_eq!(
             lex("let\tx=(1+y);\n"),
             Ok(vec![
-                Token::Let,
-                Token::Ident("x".into()),
-                Token::Equals,
-                Token::LParen,
-                Token::Number(1),
-                Token::Plus,
-                Token::Ident("y".into()),
-                Token::RParen,
-                Token::Semicolon,
+                Let,
+                Ident("x".into()),
+                Equals,
+                LParen,
+                Number(1),
+                Plus,
+                Ident("y".into()),
+                RParen,
+                Semicolon,
             ])
         );
     }
@@ -224,21 +243,18 @@ mod tests {
         assert_eq!(
             lex("letter let_ _let let1 Let"),
             Ok(vec![
-                Token::Ident("letter".into()),
-                Token::Ident("let_".into()),
-                Token::Ident("_let".into()),
-                Token::Ident("let1".into()),
-                Token::Ident("Let".into()),
+                Ident("letter".into()),
+                Ident("let_".into()),
+                Ident("_let".into()),
+                Ident("let1".into()),
+                Ident("Let".into()),
             ])
         );
     }
 
     #[test]
     fn largest_i64_is_accepted() {
-        assert_eq!(
-            lex("9223372036854775807"),
-            Ok(vec![Token::Number(i64::MAX)])
-        );
+        assert_eq!(lex("9223372036854775807"), Ok(vec![Number(i64::MAX)]));
     }
 
     #[test]
@@ -255,6 +271,39 @@ mod tests {
         assert_eq!(
             lex("größe = $;"),
             Err(LexError::UnexpectedChar { ch: '$', pos: 10 })
+        );
+    }
+    #[test]
+    fn equals_vs_eqeq() {
+        assert_eq!(lex("x = 5"), Ok(vec![Ident("x".into()), Equals, Number(5)]));
+        assert_eq!(lex("x == 5"), Ok(vec![Ident("x".into()), EqEq, Number(5)]));
+    }
+
+    #[test]
+    fn comparison_operators() {
+        assert_eq!(
+            lex("a < b <= c > d >= e != f"),
+            Ok(vec![
+                Ident("a".into()),
+                Less,
+                Ident("b".into()),
+                LessEq,
+                Ident("c".into()),
+                Greater,
+                Ident("d".into()),
+                GreaterEq,
+                Ident("e".into()),
+                NotEq,
+                Ident("f".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn lone_bang_is_an_error() {
+        assert_eq!(
+            lex("a ! b"),
+            Err(LexError::UnexpectedChar { ch: '!', pos: 2 })
         );
     }
 }

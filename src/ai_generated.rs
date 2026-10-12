@@ -1,6 +1,7 @@
 //! Lexer for a tiny expression language.
 //!
-//! Tokens: `let`, identifiers, integer literals and `+ - * / = ; ( )`.
+//! Tokens: `let`, identifiers, integer literals and
+//! `+ - * / = ; ( ) == != < <= > >=`.
 //! Whitespace separates tokens and is otherwise ignored.
 //!
 //! Run the tests with `cargo test`, or without Cargo:
@@ -22,6 +23,12 @@ pub enum Token {
     Slash,
     LParen,
     RParen,
+    EqEq,
+    NotEq,
+    Less,
+    LessEq,
+    Greater,
+    GreaterEq,
 }
 
 #[derive(Debug, PartialEq)]
@@ -48,7 +55,13 @@ pub fn lex(input: &str) -> Result<Vec<Token>, LexError> {
             '-' => Token::Minus,
             '*' => Token::Star,
             '/' => Token::Slash,
+            '=' if followed_by_eq(&mut chars) => Token::EqEq,
             '=' => Token::Equals,
+            '!' if followed_by_eq(&mut chars) => Token::NotEq,
+            '<' if followed_by_eq(&mut chars) => Token::LessEq,
+            '<' => Token::Less,
+            '>' if followed_by_eq(&mut chars) => Token::GreaterEq,
+            '>' => Token::Greater,
             ';' => Token::Semicolon,
             '(' => Token::LParen,
             ')' => Token::RParen,
@@ -82,6 +95,12 @@ fn lexeme<'a>(
     while chars.next_if(|&(_, c)| more(c)).is_some() {}
     let end = chars.peek().map_or(input.len(), |&(i, _)| i);
     &input[start..end]
+}
+
+/// Consumes the next character if it is `=`, for two-character operators
+/// like `==` and `<=`.
+fn followed_by_eq(chars: &mut Peekable<CharIndices>) -> bool {
+    chars.next_if(|&(_, c)| c == '=').is_some()
 }
 
 fn is_ident_start(c: char) -> bool {
@@ -242,6 +261,95 @@ mod tests {
         assert_eq!(
             lex("größe = $;"),
             Err(LexError::UnexpectedChar { ch: 'ö', pos: 2 })
+        );
+    }
+
+    // --- Comparison operators ---
+
+    #[test]
+    fn comparison_operators() {
+        assert_eq!(
+            lex("== != < <= > >="),
+            Ok(vec![EqEq, NotEq, Less, LessEq, Greater, GreaterEq])
+        );
+    }
+
+    #[test]
+    fn comparison_in_expression() {
+        assert_eq!(
+            lex("let b = x1 <= 42;"),
+            Ok(vec![
+                Let,
+                ident("b"),
+                Equals,
+                ident("x1"),
+                LessEq,
+                Number(42),
+                Semicolon,
+            ])
+        );
+    }
+
+    #[test]
+    fn comparison_operators_without_whitespace() {
+        assert_eq!(
+            lex("a<b>=c!=d==e>f"),
+            Ok(vec![
+                ident("a"),
+                Less,
+                ident("b"),
+                GreaterEq,
+                ident("c"),
+                NotEq,
+                ident("d"),
+                EqEq,
+                ident("e"),
+                Greater,
+                ident("f"),
+            ])
+        );
+    }
+
+    #[test]
+    fn single_equals_is_still_assignment() {
+        assert_eq!(lex("x = 1"), Ok(vec![ident("x"), Equals, Number(1)]));
+    }
+
+    #[test]
+    fn operators_are_matched_greedily() {
+        // `===` is `==` followed by `=`, `<==` is `<=` followed by `=`
+        assert_eq!(lex("==="), Ok(vec![EqEq, Equals]));
+        assert_eq!(lex("<=="), Ok(vec![LessEq, Equals]));
+    }
+
+    #[test]
+    fn space_splits_two_char_operators() {
+        assert_eq!(lex("= ="), Ok(vec![Equals, Equals]));
+        assert_eq!(lex("< ="), Ok(vec![Less, Equals]));
+        assert_eq!(lex("> ="), Ok(vec![Greater, Equals]));
+    }
+
+    #[test]
+    fn lone_bang_is_an_error() {
+        assert_eq!(
+            lex("x ! y"),
+            Err(LexError::UnexpectedChar { ch: '!', pos: 2 })
+        );
+    }
+
+    #[test]
+    fn bang_at_end_of_input_is_an_error() {
+        assert_eq!(
+            lex("x !"),
+            Err(LexError::UnexpectedChar { ch: '!', pos: 2 })
+        );
+    }
+
+    #[test]
+    fn bang_followed_by_space_and_equals_is_an_error() {
+        assert_eq!(
+            lex("a ! = b"),
+            Err(LexError::UnexpectedChar { ch: '!', pos: 2 })
         );
     }
 }
